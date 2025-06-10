@@ -1,8 +1,16 @@
+<<<<<<< HEAD
 import { PrivyClient } from "@privy-io/server-auth";
 import { cookies } from "next/headers";
 import Image from "next/image";
 import { RedirectType, redirect } from "next/navigation";
 import LoginButton from "@/components/loginButton";
+=======
+import LoginButton from "@/components/loginButton";
+import { PrivyClient } from "@privy-io/server-auth";
+import { cookies } from "next/headers";
+import Image from "next/image";
+import { redirect, RedirectType } from "next/navigation";
+>>>>>>> c33a7d3 (initial commit)
 
 export default async function Home() {
   const cookieStore = await cookies();
@@ -15,10 +23,17 @@ export default async function Home() {
     );
 
     try {
+<<<<<<< HEAD
       await client.verifyAuthToken(privyAuthToken.value);
       redirect("/dashboard", RedirectType.replace);
     } catch (e) {
       // Do something else
+=======
+      const claims = await client.verifyAuthToken(privyAuthToken.value);
+      console.log(claims);
+      redirect("/dashboard", RedirectType.replace);
+    } catch (e) {
+>>>>>>> c33a7d3 (initial commit)
       console.error(e);
     }
   }
