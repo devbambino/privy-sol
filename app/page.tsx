@@ -24,6 +24,7 @@ export default async function Home() {
 
     try {
 <<<<<<< HEAD
+<<<<<<< HEAD
       await client.verifyAuthToken(privyAuthToken.value);
       redirect("/dashboard", RedirectType.replace);
     } catch (e) {
@@ -31,6 +32,9 @@ export default async function Home() {
 =======
       const claims = await client.verifyAuthToken(privyAuthToken.value);
       console.log(claims);
+=======
+      await client.verifyAuthToken(privyAuthToken.value);
+>>>>>>> ba3f545 (feat: everything fully functional and working as expected)
       redirect("/dashboard", RedirectType.replace);
     } catch (e) {
 >>>>>>> c33a7d3 (initial commit)

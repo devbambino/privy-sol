@@ -46,8 +46,7 @@ export default async function DashboardLayout({
     );
 
     try {
-      const claims = await client.verifyAuthToken(privyAuthToken.value);
-      console.log(claims);
+      await client.verifyAuthToken(privyAuthToken.value);
     } catch (e) {
       console.error(e);
       redirect("/", RedirectType.replace);
