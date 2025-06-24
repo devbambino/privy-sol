@@ -1,5 +1,8 @@
 {
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 8b3931a (chore: lint)
 	"name": "create-solana-next-app",
 	"version": "0.1.0",
 	"private": true,
@@ -27,6 +30,7 @@
 		"tailwindcss": "^4",
 		"typescript": "^5"
 	}
+<<<<<<< HEAD
 =======
   "name": "create-solana-next-app",
   "version": "0.1.0",
@@ -56,4 +60,6 @@
     "typescript": "^5"
   }
 >>>>>>> c33a7d3 (initial commit)
+=======
+>>>>>>> 8b3931a (chore: lint)
 }
