@@ -1,4 +1,4 @@
-# Privy Auth + Solana `create-next-solana-app` Starter
+# Privy Auth + Solana `create-solana-next-app` Starter
 
 This is a template for integrating Privy's Solana capabilities into a Next.js application. It provides a simple setup for wallet login, embedded wallets, and transaction signing using the [Privy React SDK](https://docs.privy.io/basics/react/installation).
 
@@ -9,7 +9,7 @@ This demo uses NextJS's [App Router](https://nextjs.org/docs/app).
 1. Clone this repository and open it in your terminal.
 
 ```bash
-git clone https://github.com/privy-io/create-next-solana-app.git && cd create-next-solana-app
+git clone https://github.com/privy-io/create-solana-next-app.git && cd create-solana-next-app
 ```
 
 2. Install the dependencies.
