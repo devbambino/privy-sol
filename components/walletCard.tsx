@@ -1,18 +1,10 @@
 "use client";
 
 import { Wallet } from "lucide-react";
-import { Badge } from "./ui/badge";
-
-interface WalletAccount {
-  address: string;
-  chainType: string;
-  walletClientType: string;
-  connectorType: string;
-  walletIndex?: number;
-}
+import { ConnectedStandardSolanaWallet } from "@privy-io/react-auth/solana";
 
 interface WalletCardProps {
-  account: WalletAccount;
+  account: ConnectedStandardSolanaWallet;
   isActive?: boolean;
   isCreateNew?: boolean;
   onCreateNew?: () => void;
@@ -26,14 +18,6 @@ export function WalletCard({
 }: WalletCardProps) {
   const formatAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
-
-  const getWalletDisplayName = (account: WalletAccount) => {
-    if (account.walletClientType === "backpack") return "Backpack";
-    if (account.walletClientType === "privy") {
-      return `Privy ${account.chainType === "ethereum" ? "ETH" : "SOL"} ${account.walletIndex !== undefined ? `#${account.walletIndex + 1}` : ""}`;
-    }
-    return account.walletClientType;
   };
 
   if (isCreateNew) {
@@ -65,21 +49,13 @@ export function WalletCard({
             </div>
             <div>
               <h3 className="font-semibold text-white">
-                {getWalletDisplayName(account)}
+                {account.standardWallet.name}
               </h3>
               <p className="text-sm text-gray-400">
                 {formatAddress(account.address)}
               </p>
             </div>
           </div>
-        </div>
-        <div className="flex items-center justify-between">
-          <Badge
-            variant={account.chainType === "solana" ? "default" : "secondary"}
-          >
-            {account.chainType.toUpperCase()}
-          </Badge>
-          {isActive && <Badge variant="outline">Active</Badge>}
         </div>
       </div>
     </div>

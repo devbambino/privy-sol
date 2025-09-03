@@ -1,22 +1,14 @@
 "use client";
 
+import { LinkedAccountWithMetadata, usePrivy } from "@privy-io/react-auth";
 import {
-  type SolanaTransactionReceipt,
-  type SupportedSolanaTransaction,
-  usePrivy,
-  useSolanaWallets,
-} from "@privy-io/react-auth";
-import {
-  useSendTransaction,
-  useSignMessage,
-  useSignTransaction,
+  ConnectedStandardSolanaWallet,
+  useConnectedStandardWallets,
+  useCreateWallet,
+  useStandardSignAndSendTransaction,
+  useStandardSignMessage,
+  useStandardSignTransaction,
 } from "@privy-io/react-auth/solana";
-import {
-  Connection,
-  PublicKey,
-  SystemProgram,
-  Transaction,
-} from "@solana/web3.js";
 import { FileSignature, MessageSquare, Send, Wallet } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -26,91 +18,90 @@ import { SignMessageModal } from "@/components/modals/signMessageModal";
 import { SignTransactionModal } from "@/components/modals/signTransactionModal";
 import { Badge } from "@/components/ui/badge";
 import { WalletCard } from "@/components/walletCard";
-
-interface WalletAccount {
-  address: string;
-  chainType: string;
-  walletClientType: string;
-  connectorType: string;
-  walletIndex?: number;
-}
+import {
+  address,
+  appendTransactionMessageInstructions,
+  compileTransaction,
+  createNoopSigner,
+  createSolanaRpc,
+  createTransactionMessage,
+  getTransactionEncoder,
+  pipe,
+  setTransactionMessageFeePayer,
+  setTransactionMessageLifetimeUsingBlockhash,
+} from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
 
 export default function Dashboard() {
   const router = useRouter();
-  const [selectedWallet, setSelectedWallet] = useState<WalletAccount | null>(
-    null,
-  );
+  const [selectedWallet, setSelectedWallet] =
+    useState<ConnectedStandardSolanaWallet | null>(null);
   const [signMessageModalOpen, setSignMessageModalOpen] = useState(false);
   const [signTransactionModalOpen, setSignTransactionModalOpen] =
     useState(false);
   const [sendTransactionModalOpen, setSendTransactionModalOpen] =
     useState(false);
   const { user: userData, logout, ready } = usePrivy();
-  const { createWallet, wallets } = useSolanaWallets();
-  const { signMessage } = useSignMessage();
-  const { signTransaction } = useSignTransaction();
-  const { sendTransaction } = useSendTransaction();
+  const { createWallet } = useCreateWallet();
+  const { wallets } = useConnectedStandardWallets();
+  const { signMessage } = useStandardSignMessage();
+  const { signTransaction } = useStandardSignTransaction();
+  const { signAndSendTransaction } = useStandardSignAndSendTransaction();
 
-  const handleSignMessage = async (wallet: WalletAccount, message: string) => {
+  const handleSignMessage = async (
+    wallet: ConnectedStandardSolanaWallet,
+    message: string,
+  ) => {
     console.log(`Signing message "${message}" with wallet:`, wallet.address);
     const encodedMessage = new TextEncoder().encode(message);
 
-    let result: Uint8Array;
-    const foundWallet = wallets.find((v) => v.address === wallet.address);
-
-    if (foundWallet && foundWallet.connectorType !== "embedded") {
-      result = await foundWallet.signMessage(encodedMessage);
-      return console.log("Message signed:", result);
-    }
-
-    result = await signMessage({
-      message: encodedMessage,
-      options: { address: wallet.address },
-    });
+    const result = (
+      await signMessage({
+        message: encodedMessage,
+        wallet,
+      })
+    ).signature;
     console.log("Message signed:", result);
   };
 
-  const handleSignTransaction = async (wallet: WalletAccount, to: string) => {
+  const handleSignTransaction = async (
+    wallet: ConnectedStandardSolanaWallet,
+    to: string,
+  ) => {
     console.log(`Signing transaction to "${to}" with wallet:`, wallet.address);
-    const connection = new Connection(
-      process.env.NEXT_PUBLIC_SOLANA_RPC_URL as string,
-    );
     const LAMPORTS_PER_SOL = 1_000_000_000; // 1 SOL = 1 billion lamports
 
-    // Implement actual signing logic here
-    const transferInstruction = SystemProgram.transfer({
-      fromPubkey: new PublicKey(wallet.address),
-      toPubkey: new PublicKey(to),
-      lamports: 0.1 * LAMPORTS_PER_SOL, // Send 0.1 SOL for example
+    const transferInstruction = getTransferSolInstruction({
+      amount: LAMPORTS_PER_SOL * 1,
+      destination: address(to),
+      source: createNoopSigner(address(wallet.address)),
     });
+
+    const { getLatestBlockhash } = createSolanaRpc(
+      process.env.NEXT_PUBLIC_SOLANA_RPC_URL as string,
+    );
+    const { value: latestBlockhash } = await getLatestBlockhash().send();
 
     // Create transaction
-    const transaction = new Transaction().add(transferInstruction);
-
-    // Get recent blockhash and set fee payer
-    const { blockhash } = await connection.getLatestBlockhash();
-    transaction.recentBlockhash = blockhash;
-    transaction.feePayer = new PublicKey(wallet.address);
-
-    let signedTransaction: Transaction | SupportedSolanaTransaction;
-    const foundWallet = wallets.find((v) => v.address === wallet.address);
-
-    if (foundWallet && foundWallet.connectorType !== "embedded") {
-      signedTransaction = await foundWallet.signTransaction(transaction);
-      return console.log("Transaction signed:", signedTransaction);
-    }
+    const transaction = pipe(
+      createTransactionMessage({ version: 0 }),
+      (tx) => setTransactionMessageFeePayer(address(wallet.address), tx),
+      (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+      (tx) => appendTransactionMessageInstructions([transferInstruction], tx),
+      (tx) => compileTransaction(tx),
+    );
+    const encodedTx = getTransactionEncoder().encode(transaction);
 
     // Sign the transaction
-    signedTransaction = await signTransaction({
-      transaction,
-      address: wallet.address,
-      connection: connection,
+    const signedTransaction = await signTransaction({
+      transaction: new Uint8Array(encodedTx),
+      wallet: wallet,
     });
-    console.log("Transaction signed:", signedTransaction);
+    console.log("Transaction signed:", signedTransaction.signedTransaction);
   };
 
   const handleSendTransaction = async (
-    wallet: WalletAccount,
+    wallet: ConnectedStandardSolanaWallet,
     toAddress: string,
     amount: string,
   ) => {
@@ -118,38 +109,41 @@ export default function Dashboard() {
       `Sending ${amount} SOL to ${toAddress} from wallet:`,
       wallet.address,
     );
-    // Implement actual transaction logic here
-    const connection = new Connection(
-      process.env.NEXT_PUBLIC_SOLANA_RPC_URL as string,
-    );
+
     const LAMPORTS_PER_SOL = 1_000_000_000; // 1 SOL = 1 billion lamports
 
-    const transferInstruction = SystemProgram.transfer({
-      fromPubkey: new PublicKey(wallet.address),
-      toPubkey: new PublicKey(toAddress),
-      lamports: parseFloat(amount) * LAMPORTS_PER_SOL,
+    const transferInstruction = getTransferSolInstruction({
+      amount: BigInt(parseFloat(amount) * LAMPORTS_PER_SOL),
+      destination: address(toAddress),
+      source: createNoopSigner(address(wallet.address)),
     });
 
-    const transaction = new Transaction().add(transferInstruction);
-    transaction.recentBlockhash = (
-      await connection.getLatestBlockhash()
-    ).blockhash;
-    transaction.feePayer = new PublicKey(wallet.address);
+    const { getLatestBlockhash } = createSolanaRpc(
+      process.env.NEXT_PUBLIC_SOLANA_RPC_URL as string,
+    );
+    const { value: latestBlockhash } = await getLatestBlockhash().send();
 
-    let result: string | SolanaTransactionReceipt;
+    // Create transaction using @solana/kit
+    const transaction = pipe(
+      createTransactionMessage({ version: 0 }),
+      (tx) => setTransactionMessageFeePayer(address(wallet.address), tx),
+      (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+      (tx) => appendTransactionMessageInstructions([transferInstruction], tx),
+      (tx) => compileTransaction(tx),
+    );
+
     const foundWallet = wallets.find((v) => v.address === wallet.address);
 
-    if (foundWallet && foundWallet.connectorType !== "embedded") {
-      result = await foundWallet.sendTransaction(transaction, connection);
-      return console.log("Transaction sent:", result);
+    if (foundWallet) {
+      const encodedTx = getTransactionEncoder().encode(transaction);
+      const result = await signAndSendTransaction({
+        transaction: new Uint8Array(encodedTx),
+        wallet: foundWallet,
+      });
+      return console.log("Transaction sent:", result.signature);
     }
 
-    result = await sendTransaction({
-      transaction,
-      address: wallet.address,
-      connection: connection,
-    });
-    console.log("Transaction sent:", result.signature);
+    console.log("Wallet not found for sending transaction");
   };
 
   const handleCreateEmbeddedWallet = async () => {
@@ -157,14 +151,19 @@ export default function Dashboard() {
     await createWallet({ createAdditional: true });
   };
 
-  const getWalletDisplayName = (account: any) => {
+  const getWalletDisplayName = (account: LinkedAccountWithMetadata) => {
+    if (account.type !== "wallet") return account.type;
+
     if (account?.walletClientType === "privy") {
-      return `Privy ${account.chainType === "ethereum" ? "ETH" : "SOL"} ${account.walletIndex !== undefined ? `#${account.walletIndex + 1}` : ""}`;
+      return `Privy ${account.chainType === "ethereum" ? "ETH" : "SOL"} ${account.walletIndex !== undefined ? `#${(account.walletIndex ?? 0) + 1}` : ""}`;
     }
     return account?.walletClientType;
   };
 
-  const handleWalletSelect = (wallet: WalletAccount, modalType: string) => {
+  const handleWalletSelect = (
+    wallet: ConnectedStandardSolanaWallet,
+    modalType: string,
+  ) => {
     setSelectedWallet(wallet);
     switch (modalType) {
       case "signMessage":
@@ -245,21 +244,19 @@ export default function Dashboard() {
         <div className="space-y-4">
           <h2 className="text-2xl font-semibold text-white">Linked Accounts</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {userData?.linkedAccounts.map((account, index) => (
+            {wallets.map((account, index) => (
               <WalletCard
-                key={`${account.type}-${index}`}
-                account={account as WalletAccount}
+                key={`${account.standardWallet.name}-${index}`}
+                account={account}
                 isActive={
-                  // @ts-expect-error - address isn't in all accounts
                   account.address
-                    ? // @ts-expect-error - address isn't in all accounts
-                      account.address === userData?.wallet?.address
+                    ? account.address === userData?.wallet?.address
                     : false
                 }
               />
             ))}
             <WalletCard
-              account={{} as WalletAccount}
+              account={{} as ConnectedStandardSolanaWallet}
               isCreateNew={true}
               onCreateNew={handleCreateEmbeddedWallet}
             />
@@ -273,7 +270,7 @@ export default function Dashboard() {
             <ActionButton
               icon={<MessageSquare className="h-4 w-4" />}
               label="Sign Message"
-              wallets={userData?.linkedAccounts as WalletAccount[]}
+              wallets={wallets}
               onWalletSelect={(wallet) =>
                 handleWalletSelect(wallet, "signMessage")
               }
@@ -281,7 +278,7 @@ export default function Dashboard() {
             <ActionButton
               icon={<FileSignature className="h-4 w-4" />}
               label="Sign Transaction"
-              wallets={userData?.linkedAccounts as WalletAccount[]}
+              wallets={wallets}
               onWalletSelect={(wallet) =>
                 handleWalletSelect(wallet, "signTransaction")
               }
@@ -289,7 +286,7 @@ export default function Dashboard() {
             <ActionButton
               icon={<Send className="h-4 w-4" />}
               label="Send Transaction"
-              wallets={userData?.linkedAccounts as WalletAccount[]}
+              wallets={wallets}
               onWalletSelect={(wallet) =>
                 handleWalletSelect(wallet, "sendTransaction")
               }

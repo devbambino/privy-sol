@@ -4,20 +4,13 @@ import { useState } from "react";
 import { Button } from "../ui/button";
 import { Modal } from "../ui/modal";
 import { Textarea } from "../ui/textarea";
-
-interface WalletAccount {
-  address: string;
-  chainType: string;
-  walletClientType: string;
-  connectorType: string;
-  walletIndex?: number;
-}
+import { ConnectedStandardSolanaWallet } from "@privy-io/react-auth/solana";
 
 interface SignMessageModalProps {
   isOpen: boolean;
   onClose: () => void;
-  selectedWallet: WalletAccount | null;
-  onSign: (wallet: WalletAccount, message: string) => void;
+  selectedWallet: ConnectedStandardSolanaWallet | null;
+  onSign: (wallet: ConnectedStandardSolanaWallet, message: string) => void;
 }
 
 export function SignMessageModal({

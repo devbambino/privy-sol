@@ -4,20 +4,17 @@ import { useState } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Modal } from "../ui/modal";
-
-interface WalletAccount {
-  address: string;
-  chainType: string;
-  walletClientType: string;
-  connectorType: string;
-  walletIndex?: number;
-}
+import { ConnectedStandardSolanaWallet } from "@privy-io/react-auth/solana";
 
 interface SendTransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  selectedWallet: WalletAccount | null;
-  onSend: (wallet: WalletAccount, toAddress: string, amount: string) => void;
+  selectedWallet: ConnectedStandardSolanaWallet | null;
+  onSend: (
+    wallet: ConnectedStandardSolanaWallet,
+    toAddress: string,
+    amount: string,
+  ) => void;
 }
 
 export function SendTransactionModal({
